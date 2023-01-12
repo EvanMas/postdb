@@ -84,12 +84,12 @@ BEGIN
     INSERT INTO invoices (custid, service, date, price)
     WITH RECURSIVE sd AS
     (
-        SELECT custid, tariff, join_time, price
+        SELECT custid, tariff, current_timestamp, price
             FROM customers
             INNER JOIN tariffs t ON customers.tariff = t.tid
             WHERE custid = (SELECT MIN(custid) FROM customers)
         UNION
-        SELECT custid, tariff, join_time, price
+        SELECT custid, tariff, current_timestamp, price
             FROM customers
             INNER JOIN tariffs t ON customers.tariff = t.tid
     )
@@ -139,6 +139,36 @@ VALUES (1, 'Ivan', 'Ivanov', 1, '9884562122', 'bigivan@mail.com', current_timest
        (24, 'Farrell', 'David', 2, '9887559876', NULL, current_timestamp, 3),
        (25, 'Worthington', 'Smyth', 1, '9208943758', 'blanc9@mail.com', current_timestamp, 2),
        (26, 'Purview', 'Millicent', 2, '9889419786', 'Foo2107@mail.com', current_timestamp, 3);
+
+CREATE OR REPLACE FUNCTION open_tariff_payment_all() RETURNS VOID AS
+$$
+BEGIN
+    IF extract(day FROM current_timestamp) >= 13 THEN
+        INSERT INTO invoices (custid, service, date, price)
+        WITH RECURSIVE sd AS
+        (
+            SELECT custid, tariff, current_timestamp, price
+                FROM customers
+                INNER JOIN tariffs t ON customers.tariff = t.tid
+            WHERE custid = (SELECT MIN(custid) FROM customers)
+            UNION
+            SELECT custid, tariff, current_timestamp, price
+                FROM customers
+                INNER JOIN tariffs t ON customers.tariff = t.tid
+        )
+        SELECT * FROM sd;
+    ELSE
+        RAISE EXCEPTION 'No earlier than the 13th of the current month';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE VIEW total_per_month AS
+    SELECT extract(month FROM date) AS month, SUM(price) AS total
+    FROM invoices
+    GROUP BY month;
+
+ALTER TABLE city RENAME TO town;
 
 
 
