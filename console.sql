@@ -2,7 +2,15 @@ DROP TABLE IF EXISTS invoices CASCADE;
 DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS tariffs;
 DROP TABLE IF EXISTS city;
+DROP TABLE IF EXISTS reports;
 
+CREATE TABLE reports
+(
+    id SERIAL PRIMARY KEY,
+    month INT,
+    year INT,
+    number NUMERIC
+);
 
 CREATE TABLE tariffs
 (
@@ -70,7 +78,7 @@ CREATE FUNCTION open_tariff_payment(id int) RETURNS VOID AS
 $$
 BEGIN
     INSERT INTO invoices (custid, service, date, price)
-    SELECT custid, tariff, join_time, price
+    SELECT custid, tariff, current_timestamp, price
         FROM customers
         INNER JOIN tariffs t ON customers.tariff = t.tid
         WHERE custid = id;
@@ -162,6 +170,21 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE count_connect(m INT, y INT) LANGUAGE plpgsql AS
+    $$
+    BEGIN
+        BEGIN
+        INSERT INTO reports(month, year, number)
+        SELECT m, y, COUNT(1)
+        FROM invoices
+        WHERE EXTRACT(MONTH FROM date) = m AND
+              EXTRACT(YEAR FROM date) = y AND
+              service = 6;
+        END;
+        COMMIT;
+    END;
+    $$;
 
 CREATE VIEW total_per_month AS
     SELECT extract(month FROM date) AS month, SUM(price) AS total
